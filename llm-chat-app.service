@@ -1,0 +1,28 @@
+[Unit]
+Description=LLM Chat App - Streamlit Application
+After=network.target
+
+[Service]
+Type=simple
+User=streamlit
+Group=streamlit
+WorkingDirectory=/opt/llm-chat-app
+Environment=PATH=/opt/llm-chat-app/venv/bin
+ExecStart=/opt/llm-chat-app/venv/bin/streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+Restart=always
+RestartSec=10
+
+# Configuración de logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=llm-chat-app
+
+# Configuración de seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/llm-chat-app
+
+[Install]
+WantedBy=multi-user.target

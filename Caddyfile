@@ -1,0 +1,64 @@
+# Configuración principal - cambiar por tu dominio
+tu-dominio.com {
+    # Proxy reverso a Streamlit
+    reverse_proxy 127.0.0.1:8501 {
+        # Configuración para WebSocket (necesario para Streamlit)
+        header_up Upgrade {>Upgrade}
+        header_up Connection {>Connection}
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Configuración de logs
+    log {
+        output file /var/log/caddy/llm-chat-app.log
+        format json
+    }
+    
+    # Configuración de compresión automática
+    encode gzip
+    
+    # Headers de seguridad
+    header {
+        # Seguridad básica
+        X-Frame-Options SAMEORIGIN
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options nosniff
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # CSP para Streamlit
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;"
+        
+        # Eliminar header del servidor
+        -Server
+    }
+}
+
+# Configuración alternativa sin dominio (usando IP)
+# :80 {
+#     reverse_proxy 127.0.0.1:8501 {
+#         header_up Upgrade {>Upgrade}
+#         header_up Connection {>Connection}
+#         header_up Host {host}
+#         header_up X-Real-IP {remote_host}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up X-Forwarded-Proto {scheme}
+#     }
+#     
+#     log {
+#         output file /var/log/caddy/llm-chat-app.log
+#         format json
+#     }
+#     
+#     encode gzip
+# }
+
+# Configuración para desarrollo local
+# localhost:8080 {
+#     reverse_proxy 127.0.0.1:8501
+#     log {
+#         output stdout
+#     }
+# }

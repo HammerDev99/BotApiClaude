@@ -1,0 +1,267 @@
+# LLM Chat App - Streamlit
+
+Una aplicación web construida con Streamlit que permite interactuar con modelos de lenguaje como Claude (Anthropic) y GPT (OpenAI) a través de sus APIs.
+
+## Características
+
+- 🤖 Soporte para múltiples proveedores LLM (Anthropic Claude, OpenAI GPT)
+- 💬 Interfaz de chat interactiva
+- 🔧 Configuración fácil de API keys
+- 📱 Diseño responsive
+- 🚀 Listo para despliegue en producción
+
+## Requisitos
+
+- Python 3.8+
+- Ubuntu 20.04 LTS (para despliegue)
+- API keys de Anthropic y/o OpenAI
+
+## Instalación Local
+
+1. Clonar el repositorio:
+```bash
+git clone <tu-repositorio>
+cd BotApiClaude
+```
+
+2. Crear entorno virtual:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+3. Instalar dependencias:
+```bash
+pip install -r requirements.txt
+```
+
+4. Configurar variables de entorno:
+```bash
+cp .env.example .env
+# Editar .env con tus API keys
+```
+
+5. Ejecutar la aplicación:
+```bash
+streamlit run app.py
+```
+
+## Despliegue en Ubuntu 20.04
+
+### Opción 1: Script Automático con Caddy (Recomendado)
+
+```bash
+# Hacer el script ejecutable
+chmod +x deploy-caddy.sh
+
+# Ejecutar el script de despliegue con Caddy
+sudo ./deploy-caddy.sh
+```
+
+### Opción 2: Script Automático con Nginx
+
+```bash
+# Hacer el script ejecutable
+chmod +x deploy.sh
+
+# Ejecutar el script de despliegue
+sudo ./deploy.sh
+```
+
+### Opción 3: Despliegue Manual con Caddy
+
+1. **Actualizar sistema:**
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+2. **Instalar Caddy:**
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install -y caddy
+```
+
+3. **Instalar dependencias Python:**
+```bash
+sudo apt install -y python3 python3-pip python3-venv ufw
+```
+
+4. **Crear usuario para la aplicación:**
+```bash
+sudo useradd -m -s /bin/bash streamlit
+```
+
+5. **Crear directorio de aplicación:**
+```bash
+sudo mkdir -p /opt/llm-chat-app
+sudo chown streamlit:streamlit /opt/llm-chat-app
+```
+
+6. **Copiar archivos y configurar:**
+```bash
+sudo cp -r . /opt/llm-chat-app/
+sudo chown -R streamlit:streamlit /opt/llm-chat-app
+```
+
+7. **Configurar entorno virtual:**
+```bash
+sudo -u streamlit python3 -m venv /opt/llm-chat-app/venv
+sudo -u streamlit /opt/llm-chat-app/venv/bin/pip install -r /opt/llm-chat-app/requirements.txt
+```
+
+8. **Configurar systemd service:**
+```bash
+sudo cp llm-chat-app.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable llm-chat-app
+sudo systemctl start llm-chat-app
+```
+
+9. **Configurar Caddy:**
+```bash
+sudo mkdir -p /etc/caddy /var/log/caddy
+sudo cp Caddyfile /etc/caddy/Caddyfile
+sudo chown caddy:caddy /etc/caddy/Caddyfile
+sudo chown -R caddy:caddy /var/log/caddy
+# Editar el dominio en el Caddyfile
+sudo nano /etc/caddy/Caddyfile
+sudo systemctl enable caddy
+sudo systemctl start caddy
+```
+
+10. **Configurar firewall:**
+```bash
+sudo ufw enable
+sudo ufw allow ssh
+sudo ufw allow 80
+sudo ufw allow 443
+```
+
+11. **Configurar variables de entorno:**
+```bash
+sudo cp /opt/llm-chat-app/.env.example /opt/llm-chat-app/.env
+# Editar con tus API keys
+sudo nano /opt/llm-chat-app/.env
+```
+
+## Configuración
+
+### Variables de Entorno
+
+Edita el archivo `.env` con tus API keys:
+
+```env
+ANTHROPIC_API_KEY=tu_clave_anthropic
+OPENAI_API_KEY=tu_clave_openai
+STREAMLIT_SERVER_PORT=8501
+STREAMLIT_SERVER_ADDRESS=0.0.0.0
+```
+
+### Caddy
+
+Edita `Caddyfile` y cambia `tu-dominio.com` por tu dominio:
+
+```caddyfile
+tu-dominio.com {
+    # configuración del proxy reverso
+}
+```
+
+### Nginx (si usas nginx en lugar de Caddy)
+
+Edita `nginx.conf` y cambia `tu-dominio.com` por tu dominio o IP:
+
+```nginx
+server_name tu-dominio.com;
+```
+
+## Comandos Útiles
+
+### Verificar estado del servicio:
+```bash
+sudo systemctl status llm-chat-app
+```
+
+### Ver logs:
+```bash
+sudo journalctl -u llm-chat-app -f
+```
+
+### Reiniciar servicio:
+```bash
+sudo systemctl restart llm-chat-app
+```
+
+### Comandos de Caddy:
+```bash
+# Verificar configuración
+sudo caddy validate --config /etc/caddy/Caddyfile
+
+# Recargar configuración
+sudo systemctl reload caddy
+
+# Ver logs de Caddy
+sudo journalctl -u caddy -f
+
+# Reiniciar Caddy
+sudo systemctl restart caddy
+```
+
+### Comandos de Nginx (si usas nginx):
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## Solución de Problemas
+
+### La aplicación no inicia:
+1. Verificar logs: `sudo journalctl -u llm-chat-app -n 50`
+2. Verificar permisos: `ls -la /opt/llm-chat-app/`
+3. Verificar entorno virtual: `sudo -u streamlit /opt/llm-chat-app/venv/bin/python -c "import streamlit"`
+
+### Error de conexión:
+1. Verificar que el servicio esté corriendo: `sudo systemctl status llm-chat-app`
+2. Verificar puerto: `sudo netstat -tlnp | grep 8501`
+3. Verificar firewall: `sudo ufw status`
+
+### Error de API:
+1. Verificar API keys en `/opt/llm-chat-app/.env`
+2. Verificar conectividad: `curl -I https://api.anthropic.com`
+
+## Estructura del Proyecto
+
+```
+BotApiClaude/
+├── app.py                 # Aplicación principal Streamlit
+├── requirements.txt       # Dependencias Python
+├── .env.example          # Ejemplo de variables de entorno
+├── .streamlit/           # Configuración Streamlit
+│   └── config.toml
+├── deploy.sh             # Script de despliegue con nginx
+├── deploy-caddy.sh       # Script de despliegue con Caddy
+├── llm-chat-app.service  # Archivo de servicio systemd
+├── Caddyfile            # Configuración Caddy
+├── nginx.conf            # Configuración nginx
+└── README.md             # Este archivo
+```
+
+## Seguridad
+
+- Las API keys se almacenan en variables de entorno
+- El servicio se ejecuta con usuario no privilegiado
+- Caddy/Nginx actúa como proxy reverso
+- Caddy obtiene certificados SSL automáticamente
+- Firewall configurado para permitir solo puertos necesarios
+- Headers de seguridad configurados automáticamente
+
+## Contribuir
+
+1. Fork el proyecto
+2. Crea una rama para tu feature
+3. Commit tus cambios
+4. Push a la rama
+5. Abre un Pull Request
