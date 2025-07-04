@@ -68,7 +68,102 @@ chmod +x deploy.sh
 sudo ./deploy.sh
 ```
 
-### Opción 3: Despliegue Manual con Caddy
+### Opción 3: Despliegue en VPS con Blog Existente (Caddy)
+
+**Caso de uso:** Ya tienes un blog funcionando con Caddy y quieres agregar la aplicación LLM en un subdirectorio `/chat`
+
+1. **Crear directorio y clonar repositorio:**
+```bash
+sudo mkdir -p /opt/llm-chat-app
+sudo chown webmaster:webmaster /opt/llm-chat-app
+cd /opt/llm-chat-app
+git clone https://github.com/tu-usuario/BotApiClaude.git .
+```
+
+2. **Configurar entorno virtual:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. **Configurar variables de entorno:**
+```bash
+cp .env.example .env
+nano .env
+# Configurar ANTHROPIC_API_KEY y STREAMLIT_SERVER_ADDRESS=127.0.0.1
+```
+
+4. **Crear servicio systemd:**
+```bash
+sudo nano /etc/systemd/system/llm-chat-app.service
+```
+Contenido:
+```ini
+[Unit]
+Description=LLM Chat App - Streamlit Application
+After=network.target
+
+[Service]
+Type=simple
+User=webmaster
+Group=webmaster
+WorkingDirectory=/opt/llm-chat-app
+Environment=PATH=/opt/llm-chat-app/venv/bin
+ExecStart=/opt/llm-chat-app/venv/bin/streamlit run app.py --server.port 8501 --server.address 127.0.0.1
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+5. **Habilitar y iniciar servicio:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable llm-chat-app
+sudo systemctl start llm-chat-app
+```
+
+6. **Modificar Caddyfile existente:**
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+Agregar la configuración del chat antes del handle principal:
+```caddyfile
+:80 {
+    # Ruta para la aplicación LLM Chat
+    handle /chat* {
+        uri strip_prefix /chat
+        reverse_proxy 127.0.0.1:8501 {
+            header_up Host localhost:8501
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up Upgrade {>Upgrade}
+            header_up Connection {>Connection}
+        }
+    }
+
+    # Tu configuración existente del blog
+    handle {
+        root * /var/www/tu-blog
+        file_server
+        # resto de tu configuración...
+    }
+}
+```
+
+7. **Recargar Caddy:**
+```bash
+sudo systemctl reload caddy
+```
+
+**Resultado:** 
+- Blog: `http://tu-ip/`
+- App LLM: `http://tu-ip/chat/`
+
+### Opción 4: Despliegue Manual con Caddy
 
 1. **Actualizar sistema:**
 ```bash
