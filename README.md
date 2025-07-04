@@ -48,7 +48,72 @@ streamlit run app.py
 
 ## Despliegue en Ubuntu 20.04
 
-### Opción 1: Script Automático con Caddy (Recomendado)
+### Opción 1: Despliegue con Docker (Recomendado)
+
+**Caso de uso:** Despliegue aislado y limpio usando contenedores Docker
+
+1. **En tu máquina local - Actualizar y subir cambios:**
+```bash
+# Hacer cambios al código
+git add .
+git commit -m "Update application"
+git push origin master
+```
+
+2. **En el VPS - Actualizar proyecto:**
+```bash
+cd ~/llm-chat-docker
+git pull origin master
+```
+
+3. **En el VPS - Configurar variables de entorno:**
+```bash
+cp .env.example .env
+nano .env
+# Configurar ANTHROPIC_API_KEY y otras variables
+```
+
+4. **En el VPS - Construir y ejecutar contenedor:**
+```bash
+docker-compose up --build -d
+```
+
+5. **En el VPS - Configurar Caddy (solo la primera vez):**
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+Agregar configuración del chat:
+```caddyfile
+:80 {
+    # Ruta para la aplicación LLM Chat (Docker)
+    handle /chat/* {
+        uri strip_prefix /chat
+        reverse_proxy 127.0.0.1:8501
+    }
+
+    handle /chat {
+        redir /chat/ 301
+    }
+
+    # Tu configuración existente del blog
+    handle {
+        root * /var/www/tu-blog
+        file_server
+        # resto de configuración...
+    }
+}
+```
+
+6. **En el VPS - Recargar Caddy:**
+```bash
+sudo systemctl reload caddy
+```
+
+**Resultado:** 
+- Blog: `http://tu-ip/`
+- App LLM: `http://tu-ip/chat/`
+
+### Opción 2: Script Automático con Caddy
 
 ```bash
 # Hacer el script ejecutable
@@ -58,7 +123,7 @@ chmod +x deploy-caddy.sh
 sudo ./deploy-caddy.sh
 ```
 
-### Opción 2: Script Automático con Nginx
+### Opción 3: Script Automático con Nginx
 
 ```bash
 # Hacer el script ejecutable
@@ -275,18 +340,36 @@ server_name tu-dominio.com;
 
 ## Comandos Útiles
 
-### Verificar estado del servicio:
+### Para Docker (Opción 1 - Recomendado):
 ```bash
+# Ver estado de contenedores
+docker-compose ps
+
+# Ver logs de la aplicación
+docker logs llm-chat-app
+
+# Reiniciar contenedor
+docker-compose restart
+
+# Detener contenedores
+docker-compose down
+
+# Reconstruir y reiniciar
+docker-compose up --build -d
+
+# Ver uso de recursos
+docker stats llm-chat-app
+```
+
+### Para servicios systemd (Opciones 2-3):
+```bash
+# Verificar estado del servicio
 sudo systemctl status llm-chat-app
-```
 
-### Ver logs:
-```bash
+# Ver logs
 sudo journalctl -u llm-chat-app -f
-```
 
-### Reiniciar servicio:
-```bash
+# Reiniciar servicio
 sudo systemctl restart llm-chat-app
 ```
 
@@ -305,25 +388,38 @@ sudo journalctl -u caddy -f
 sudo systemctl restart caddy
 ```
 
-### Comandos de Nginx (si usas nginx):
-```bash
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
 ## Solución de Problemas
 
-### La aplicación no inicia:
+### Docker (Opción 1):
+
+**La aplicación no inicia:**
+1. Verificar logs: `docker logs llm-chat-app`
+2. Verificar contenedor: `docker-compose ps`
+3. Verificar configuración: `docker-compose config`
+
+**Error de conexión:**
+1. Verificar que el contenedor esté corriendo: `docker-compose ps`
+2. Verificar puerto: `docker port llm-chat-app`
+3. Verificar red: `docker network ls`
+
+**Error de API:**
+1. Verificar variables de entorno: `docker exec llm-chat-app env | grep API`
+2. Verificar archivo .env: `cat .env`
+3. Verificar conectividad: `docker exec llm-chat-app curl -I https://api.anthropic.com`
+
+### Servicios systemd (Opciones 2-3):
+
+**La aplicación no inicia:**
 1. Verificar logs: `sudo journalctl -u llm-chat-app -n 50`
 2. Verificar permisos: `ls -la /opt/llm-chat-app/`
 3. Verificar entorno virtual: `sudo -u streamlit /opt/llm-chat-app/venv/bin/python -c "import streamlit"`
 
-### Error de conexión:
+**Error de conexión:**
 1. Verificar que el servicio esté corriendo: `sudo systemctl status llm-chat-app`
 2. Verificar puerto: `sudo netstat -tlnp | grep 8501`
 3. Verificar firewall: `sudo ufw status`
 
-### Error de API:
+**Error de API:**
 1. Verificar API keys en `/opt/llm-chat-app/.env`
 2. Verificar conectividad: `curl -I https://api.anthropic.com`
 
@@ -336,22 +432,25 @@ BotApiClaude/
 ├── .env.example          # Ejemplo de variables de entorno
 ├── .streamlit/           # Configuración Streamlit
 │   └── config.toml
-├── deploy.sh             # Script de despliegue con nginx
+├── Dockerfile            # Configuración Docker
+├── docker-compose.yml    # Orquestación de contenedores
+├── .dockerignore         # Archivos excluidos de Docker
 ├── deploy-caddy.sh       # Script de despliegue con Caddy
 ├── llm-chat-app.service  # Archivo de servicio systemd
-├── Caddyfile            # Configuración Caddy
-├── nginx.conf            # Configuración nginx
+├── Caddyfile            # Configuración Caddy standalone
 └── README.md             # Este archivo
 ```
 
 ## Seguridad
 
 - Las API keys se almacenan en variables de entorno
+- Docker proporciona aislamiento de contenedores
 - El servicio se ejecuta con usuario no privilegiado
-- Caddy/Nginx actúa como proxy reverso
+- Caddy actúa como proxy reverso
 - Caddy obtiene certificados SSL automáticamente
 - Firewall configurado para permitir solo puertos necesarios
 - Headers de seguridad configurados automáticamente
+- Contenedores con acceso limitado al sistema host
 
 ## Contribuir
 
